@@ -1,4 +1,4 @@
-package email
+package mailer
 
 import (
 	"context"
@@ -11,36 +11,36 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type Emailer struct {
-	config     EmailConfig
-	emailer    IEmailer
+type Mailer struct {
+	config     MailerConfig
+	mailer     IMailer
 	locale     string
 	dataClient *graphql.Client
 	logger     *logrus.Entry
 }
 
-func New(config Config) (*Emailer, error) {
-	var emailer IEmailer
+func New(config Config) (*Mailer, error) {
+	var mailer IMailer
 	var err error
 	// don't require emailer vendor if we only save to queue
 	if config.EmailVendor != "" {
-		emailer, err = config.getIEmail()
+		mailer, err = config.getIMailer()
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	return &Emailer{
-		config:     config.EmailConfig,
-		emailer:    emailer,
+	return &Mailer{
+		config:     config.MailerConfig,
+		mailer:     mailer,
 		dataClient: config.DataClient,
 		logger:     config.Logger,
 		locale:     config.EmailLocale,
 	}, nil
 }
 
-func (em *Emailer) Send(inputs []*SendRequest) error {
-	if em.emailer == nil {
+func (em *Mailer) Send(inputs []*SendRequest) error {
+	if em.mailer == nil {
 		return errors.New("required emailer vendor")
 	}
 
@@ -52,7 +52,7 @@ func (em *Emailer) Send(inputs []*SendRequest) error {
 			input.FromName = em.config.EmailFromName
 		}
 
-		err := em.emailer.Send(input.Model())
+		err := em.mailer.Send(input.Model())
 		if err != nil {
 			return err
 		}
@@ -61,13 +61,13 @@ func (em *Emailer) Send(inputs []*SendRequest) error {
 	return nil
 }
 
-func (em *Emailer) SendQueue(inputs []*SendRequest) error {
+func (em *Mailer) SendQueue(inputs []*SendRequest) error {
 	if em.dataClient == nil {
 		return errors.New("DATA_CLIENT is required")
 	}
 
 	for _, input := range inputs {
-		err := em.emailer.Send(input.Model())
+		err := em.mailer.Send(input.Model())
 		if err != nil {
 			return err
 		}
@@ -76,7 +76,7 @@ func (em *Emailer) SendQueue(inputs []*SendRequest) error {
 	return nil
 }
 
-func (em *Emailer) SendWithTemplates(inputs []*SendRequest, variables interface{}) error {
+func (em *Mailer) SendWithTemplates(inputs []*SendRequest, variables interface{}) error {
 	if len(inputs) == 0 {
 		return nil
 	}
@@ -123,7 +123,7 @@ func (em *Emailer) SendWithTemplates(inputs []*SendRequest, variables interface{
 	return em.Send(newInputs)
 }
 
-func (em *Emailer) GetTemplateByIDs(ids ...string) (map[string]*EmailTemplate, error) {
+func (em *Mailer) GetTemplateByIDs(ids ...string) (map[string]*EmailTemplate, error) {
 	results := make(map[string]*EmailTemplate)
 	if len(ids) == 0 {
 		return results, nil
@@ -161,7 +161,7 @@ func (em *Emailer) GetTemplateByIDs(ids ...string) (map[string]*EmailTemplate, e
 	return results, nil
 }
 
-func (em *Emailer) UpsertTemplates(inputs []*EmailTemplate) ([]*EmailTemplate, error) {
+func (em *Mailer) UpsertTemplates(inputs []*EmailTemplate) ([]*EmailTemplate, error) {
 	if len(inputs) == 0 {
 		return []*EmailTemplate{}, nil
 	}
@@ -203,7 +203,7 @@ func (em *Emailer) UpsertTemplates(inputs []*EmailTemplate) ([]*EmailTemplate, e
 	return results, nil
 }
 
-func (em *Emailer) getLocaleContent(contents map[string]string) string {
+func (em *Mailer) getLocaleContent(contents map[string]string) string {
 	if em.config.EmailLocale == "" {
 		return common.GetFirstStringInMap(contents)
 	}

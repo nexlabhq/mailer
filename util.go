@@ -1,4 +1,4 @@
-package email
+package mailer
 
 import "github.com/nexlabhq/mailer/common"
 

@@ -1,4 +1,4 @@
-package email
+package mailer
 
 import (
 	"encoding/json"
@@ -26,11 +26,11 @@ func (sr SendRequest) Model() *common.SendRequest {
 	return &srr
 }
 
-type IEmailer interface {
+type IMailer interface {
 	Send(input *common.SendRequest) error
 }
 
-type EmailConfig struct {
+type MailerConfig struct {
 	EmailVendor    string `envconfig:"EMAIL_VENDOR" required:"true"`
 	EmailFrom      string `envconfig:"EMAIL_FROM"`
 	EmailFromName  string `envconfig:"EMAIL_FROM_NAME"`
@@ -39,19 +39,19 @@ type EmailConfig struct {
 }
 
 type Config struct {
-	EmailConfig
+	MailerConfig
 	DataClient *graphql.Client
 	Logger     *logrus.Entry
 }
 
-func (c Config) getIEmail() (IEmailer, error) {
+func (c Config) getIMailer() (IMailer, error) {
 	switch c.EmailVendor {
 	case VendorSendGrid:
 		if c.SendGridAPIKey == "" {
 			return nil, errors.New("SendGrid API Key is required")
 		}
 
-		client := sendgrid.New(c.EmailConfig.SendGridAPIKey)
+		client := sendgrid.New(c.MailerConfig.SendGridAPIKey)
 		if c.Logger != nil {
 			client.SetLogger(c.Logger)
 		}
