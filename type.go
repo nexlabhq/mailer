@@ -9,7 +9,9 @@ import (
 
 	"github.com/hasura/go-graphql-client"
 	"github.com/nexlabhq/mailer/common"
+	"github.com/nexlabhq/mailer/mailgun"
 	"github.com/nexlabhq/mailer/sendgrid"
+	"github.com/nexlabhq/mailer/smtp"
 	"github.com/sirupsen/logrus"
 )
 
@@ -17,6 +19,8 @@ type EmailVendor string
 
 const (
 	VendorSendGrid = "sendgrid"
+	VendorMailgun  = "mailgun"
+	VendorSMTP     = "smtp"
 )
 
 type SendRequest common.SendRequest
@@ -28,6 +32,7 @@ func (sr SendRequest) Model() *common.SendRequest {
 
 type IMailer interface {
 	Send(input *common.SendRequest) error
+	SetLogger(logger *logrus.Entry)
 }
 
 type MailerConfig struct {
@@ -36,6 +41,8 @@ type MailerConfig struct {
 	EmailFromName  string `envconfig:"EMAIL_FROM_NAME"`
 	SendGridAPIKey string `envconfig:"SENDGRID_API_KEY"`
 	EmailLocale    string `envconfig:"EMAIL_LOCALE"`
+	SMTP           smtp.Config
+	Mailgun        mailgun.Config
 }
 
 type Config struct {
@@ -45,20 +52,36 @@ type Config struct {
 }
 
 func (c Config) getIMailer() (IMailer, error) {
+
+	var client IMailer
 	switch c.EmailVendor {
 	case VendorSendGrid:
 		if c.SendGridAPIKey == "" {
 			return nil, errors.New("SendGrid API Key is required")
 		}
 
-		client := sendgrid.New(c.MailerConfig.SendGridAPIKey)
-		if c.Logger != nil {
-			client.SetLogger(c.Logger)
+		client = sendgrid.New(c.MailerConfig.SendGridAPIKey)
+	case VendorSMTP:
+		if err := c.SMTP.Validate(); err != nil {
+			return nil, err
 		}
-		return client, nil
+
+		client = smtp.New(&c.SMTP)
+	case VendorMailgun:
+		if err := c.Mailgun.Validate(); err != nil {
+			return nil, err
+		}
+
+		client = mailgun.New(&c.Mailgun)
+	default:
+		return nil, fmt.Errorf("invalid vendor %s", c.EmailVendor)
 	}
 
-	return nil, fmt.Errorf("invalid vendor %s", c.EmailVendor)
+	if c.Logger != nil {
+		client.SetLogger(c.Logger)
+	}
+	return client, nil
+
 }
 
 type EmailTemplate struct {

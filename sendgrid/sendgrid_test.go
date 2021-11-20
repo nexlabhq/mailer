@@ -16,16 +16,16 @@ func TestSendGridClient(t *testing.T) {
 	assert.Equal(t, fmt.Sprintf("Bearer %s", apiKey), client.Client.Headers["Authorization"])
 
 	input := &common.SendRequest{
-		From:     "toan.nguyen@nexlab.tech",
+		From:     "sender@nexlab.local",
 		FromName: "test",
 		To: []*common.Email{
-			{Address: "user@telehealth.nexlab", Name: "To user"},
+			{Address: "to@nexlab.local", Name: "To user"},
 		},
 		CC: []*common.Email{
-			{Address: "user@telehealth.nexlab", Name: "Cc user"},
+			{Address: "cc@nexlab.local", Name: "Cc user"},
 		},
 		BCC: []*common.Email{
-			{Address: "user@telehealth.nexlab", Name: "Bcc user"},
+			{Address: "bcc@nexlab.local", Name: "Bcc user"},
 		},
 		Subject:          "Test email",
 		PlainTextContent: "Hello world",

@@ -2,6 +2,7 @@ package common
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 )
 
@@ -20,6 +21,10 @@ type SendRequest struct {
 type Email struct {
 	Address string
 	Name    string
+}
+
+func (e Email) String() string {
+	return strings.TrimSpace(fmt.Sprintf("%s <%s>", e.Name, e.Address))
 }
 
 func ParseEmail(input string) (*Email, error) {
