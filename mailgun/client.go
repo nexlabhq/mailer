@@ -80,7 +80,7 @@ func (c *Client) Send(input *common.SendRequest) error {
 			"vendor":     "mailgun",
 			"response":   resp,
 			"message_id": id,
-		}).Error(err)
+		}).Info("sent email successfully!")
 	}
 	return nil
 }
