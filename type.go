@@ -1,167 +1,61 @@
 package mailer
 
-import (
-	"encoding/json"
-	"errors"
-	"fmt"
-	"sort"
-	"strings"
+import "time"
 
-	"github.com/hasura/go-graphql-client"
-	"github.com/nexlabhq/mailer/common"
-	"github.com/nexlabhq/mailer/mailgun"
-	"github.com/nexlabhq/mailer/sendgrid"
-	"github.com/nexlabhq/mailer/smtp"
-	"github.com/sirupsen/logrus"
-)
+type json map[string]interface{}
+type email_request_bool_exp map[string]interface{}
 
-type EmailVendor string
-
-const (
-	VendorSendGrid = "sendgrid"
-	VendorMailgun  = "mailgun"
-	VendorSMTP     = "smtp"
-)
-
-type SendRequest common.SendRequest
-
-func (sr SendRequest) Model() *common.SendRequest {
-	srr := common.SendRequest(sr)
-	return &srr
+// Email represents email address and name information
+type Email struct {
+	Address string `graphql:"address" json:"address"`
+	Name    string `graphql:"name" json:"name,omitempty"`
 }
 
-type IMailer interface {
-	Send(input *common.SendRequest) error
-	SetLogger(logger *logrus.Entry)
+// SendEmailInput represents the email request payload
+type SendEmailInput struct {
+	TemplateID       string    `json:"template_id,omitempty" graphql:"template_id"`
+	From             string    `json:"from,omitempty" graphql:"from"`
+	FromName         string    `json:"from_name,omitempty" graphql:"from_name"`
+	To               []*Email  `json:"to,omitempty" graphql:"to" scalar:"true"`
+	CC               []*Email  `json:"cc,omitempty" graphql:"cc" scalar:"true"`
+	BCC              []*Email  `json:"bcc,omitempty" graphql:"bcc" scalar:"true"`
+	Subject          string    `json:"subject,omitempty" graphql:"subject"`
+	PlainTextContent string    `json:"content,omitempty" graphql:"content"`
+	HTMLContent      string    `json:"html_content,omitempty" graphql:"html_content"`
+	SendAfter        time.Time `json:"send_after,omitempty" graphql:"send_after"`
+	Save             bool      `json:"save"`
+	Locale           string    `json:"locale"`
 }
 
-type MailerConfig struct {
-	EmailVendor    string `envconfig:"EMAIL_VENDOR" required:"true"`
-	EmailFrom      string `envconfig:"EMAIL_FROM"`
-	EmailFromName  string `envconfig:"EMAIL_FROM_NAME"`
-	SendGridAPIKey string `envconfig:"SENDGRID_API_KEY"`
-	EmailLocale    string `envconfig:"EMAIL_LOCALE"`
-	SMTP           smtp.Config
-	Mailgun        mailgun.Config
+// SendEmailResponse represents email response from external service
+type SendEmailResponse struct {
+	Success   bool        `json:"success" graphql:"success"`
+	RequestID *string     `json:"request_id,omitempty" graphql:"request_id"`
+	MessageID string      `json:"message_id,omitempty" graphql:"message_id"`
+	Error     interface{} `json:"error,omitempty" graphql:"error"`
 }
 
-type Config struct {
-	MailerConfig
-	DataClient *graphql.Client
-	Logger     *logrus.Entry
+// SendEmailOutput represents the summary result of sending emails
+type SendEmailOutput struct {
+	Responses    []SendEmailResponse `json:"responses" graphql:"responses"`
+	SuccessCount int                 `json:"success_count" graphql:"success_count"`
+	FailureCount int                 `json:"failure_count" graphql:"failure_count"`
 }
 
-func (c Config) getIMailer() (IMailer, error) {
-
-	var client IMailer
-	switch c.EmailVendor {
-	case VendorSendGrid:
-		if c.SendGridAPIKey == "" {
-			return nil, errors.New("SendGrid API Key is required")
-		}
-
-		client = sendgrid.New(c.MailerConfig.SendGridAPIKey)
-	case VendorSMTP:
-		if err := c.SMTP.Validate(); err != nil {
-			return nil, err
-		}
-
-		client = smtp.New(&c.SMTP)
-	case VendorMailgun:
-		if err := c.Mailgun.Validate(); err != nil {
-			return nil, err
-		}
-
-		client = mailgun.New(&c.Mailgun)
-	default:
-		return nil, fmt.Errorf("invalid vendor %s", c.EmailVendor)
-	}
-
-	if c.Logger != nil {
-		client.SetLogger(c.Logger)
-	}
-	return client, nil
-
-}
-
-type EmailTemplate struct {
-	ID           string            `json:"id"`
-	Subjects     map[string]string `json:"subjects"`
-	Contents     map[string]string `json:"contents"`
-	HTMLContents map[string]string `json:"html_contents"`
-}
-
-type EmailTemplateRaw struct {
-	ID           string          `graphql:"id" json:"id"`
-	Subjects     json.RawMessage `graphql:"subjects" json:"subjects"`
-	Contents     json.RawMessage `graphql:"contents" json:"contents"`
-	HTMLContents json.RawMessage `graphql:"html_contents" json:"html_contents"`
-}
-
-func (etr *EmailTemplateRaw) Parse() (*EmailTemplate, error) {
-
-	var subjects map[string]string
-	var contents map[string]string
-	var htmlContents map[string]string
-	if len(etr.Contents) > 0 {
-		err := json.Unmarshal(etr.Contents, &contents)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if len(etr.Subjects) > 0 {
-		err := json.Unmarshal(etr.Subjects, &subjects)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if len(etr.HTMLContents) > 0 {
-		err := json.Unmarshal(etr.HTMLContents, &htmlContents)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return &EmailTemplate{
-		ID:           etr.ID,
-		Subjects:     subjects,
-		Contents:     contents,
-		HTMLContents: htmlContents,
-	}, nil
-}
-
-type email_template_bool_exp map[string]interface{}
-type email_template_insert_input EmailTemplate
-
-// uniqueStrings is the special array string that only store unique values
-type uniqueStrings map[string]bool
-
-// Add append new value or skip if it's existing
-func (us uniqueStrings) Add(values ...string) {
-	for _, s := range values {
-		if _, ok := us[s]; !ok {
-			us[s] = true
-		}
+// NewEmails a shortcut for creating Email array
+func NewEmails(address string, name string) []*Email {
+	return []*Email{
+		{
+			Address: address,
+			Name:    name,
+		},
 	}
 }
 
-// IsEmpty check if the array is empty
-func (us uniqueStrings) IsEmpty() bool {
-	return len(us) == 0
-}
-
-// Value return
-func (us uniqueStrings) Value() []string {
-	results := make([]string, 0, len(us))
-	for k := range us {
-		results = append(results, k)
+// NewEmail create a shortcut for creating Email instance
+func NewEmail(address string, name string) *Email {
+	return &Email{
+		Address: address,
+		Name:    name,
 	}
-	return results
-}
-
-// String implement string interface
-func (us uniqueStrings) String() string {
-	results := us.Value()
-	sort.Strings(results)
-	return strings.Join(results, ",")
 }
