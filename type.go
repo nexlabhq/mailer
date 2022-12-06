@@ -2,7 +2,7 @@ package mailer
 
 import "time"
 
-type json map[string]string
+type json map[string]interface{}
 type email_request_bool_exp map[string]interface{}
 
 // Email represents email address and name information
@@ -52,7 +52,7 @@ func NewEmails(address string, name string) []*Email {
 	}
 }
 
-// NewEmails a shortcut for creating Email instance
+// NewEmail create a shortcut for creating Email instance
 func NewEmail(address string, name string) *Email {
 	return &Email{
 		Address: address,

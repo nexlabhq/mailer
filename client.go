@@ -20,7 +20,7 @@ func New(client *graphql.Client) *Client {
 }
 
 // Send a mail request
-func (c *Client) Send(inputs []SendEmailInput, variables map[string]string) (*SendEmailOutput, error) {
+func (c *Client) Send(inputs []SendEmailInput, variables map[string]interface{}) (*SendEmailOutput, error) {
 	if len(inputs) == 0 {
 		return &SendEmailOutput{}, nil
 	}
