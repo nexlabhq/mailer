@@ -5,15 +5,16 @@ import (
 	"time"
 
 	"github.com/hasura/go-graphql-client"
+	"github.com/hgiasac/graphql-utils/client"
 )
 
 // Client a high level mail client that communicates the backend through GraphQL client
 type Client struct {
-	client *graphql.Client
+	client client.Client
 }
 
 // New constructs a mail client
-func New(client *graphql.Client) *Client {
+func New(client client.Client) *Client {
 	return &Client{
 		client: client,
 	}
