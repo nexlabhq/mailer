@@ -11,13 +11,14 @@ import (
 	"time"
 
 	"github.com/hasura/go-graphql-client"
-	"github.com/stretchr/testify/assert"
 )
 
 func cleanup(t *testing.T, client *Client) {
 
 	_, err := client.CancelEmails(map[string]interface{}{})
-	assert.NoError(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 // hasuraTransport transport for Hasura GraphQL Client
@@ -66,7 +67,9 @@ func TestSendEmails(t *testing.T) {
 			Save:             true,
 		},
 	}, nil)
-	assert.NoError(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	var getQuery struct {
 		EmailRequests []struct {
@@ -82,6 +85,10 @@ func TestSendEmails(t *testing.T) {
 		},
 	}
 	err = client.client.Query(context.TODO(), &getQuery, getVariables)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, len(getQuery.EmailRequests))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(getQuery.EmailRequests) != 1 {
+		t.Fatalf("expected 1 request, got: %d", len(getQuery.EmailRequests))
+	}
 }
